@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  zcode-remote:
+    build: .
+    image: zcode-remote:latest
+    container_name: zcode-remote
+    restart: always
+    ports:
+      - "8765:8765"
+    environment:
+      - PORT=8765
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      # 可选：配置接入 Token 保护中继端点
+      # - RELAY_AUTH_TOKEN=your_secure_token
+    volumes:
+      - ./public:/app/public:ro
