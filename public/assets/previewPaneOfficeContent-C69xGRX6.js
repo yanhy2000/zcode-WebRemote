@@ -1,0 +1,1 @@
+import{t as e}from"./index-B-YS8Ebz.js";export{e as PreviewPaneOfficeContent};
