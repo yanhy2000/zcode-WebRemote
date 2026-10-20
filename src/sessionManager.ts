@@ -51,6 +51,30 @@ export class SessionManager {
     return this.sessions.size;
   }
 
+  getSessionSummaries(): Array<{
+    deviceSid: string;
+    mid?: string;
+    name?: string;
+    status: string;
+    hasDevice: boolean;
+    hasTerminal: boolean;
+    createdAt: number;
+  }> {
+    const list = [];
+    for (const [sid, session] of this.sessions.entries()) {
+      list.push({
+        deviceSid: sid,
+        mid: session.deviceMid,
+        name: session.meta?.name,
+        status: session.pairStatus,
+        hasDevice: Boolean(session.deviceConn?.authenticated),
+        hasTerminal: Boolean(session.terminalConn?.authenticated),
+        createdAt: session.createdAt,
+      });
+    }
+    return list;
+  }
+
   getSession(deviceSid: string): RelaySession | undefined {
     return this.sessions.get(deviceSid);
   }
