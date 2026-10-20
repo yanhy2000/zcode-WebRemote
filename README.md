@@ -14,6 +14,7 @@
 * **数据主权与隐私保护**：采用零持久化原则，中继在内存中完成帧转发，**严禁将 RPC / 任务明文负载落盘**。
 * **零维护者成本（开源友好）**：用户可在 1 分钟内通过 Docker Compose 自建，也可配合 Cloudflare 免费穿透，维护者无需承担全网用户的集中式服务器费用。
 * **单一轻量进程**：纯 TypeScript 编写，单个 Node.js 进程同时提供 `/ws` 中继端点与 `/remote/v4` Web 静态资源托管，内存占用小于 20MB。
+* **手机端页面与官方 3.16.1 对齐**：`/remote/v4` 由 ZCode 私有 fork 构建（3.16.1 共享 UI + V1 协议），不需要账号登录，也不依赖 V2 的 `/api/v1/remote/*` 设备与令牌接口。
 
 ---
 
@@ -42,6 +43,7 @@
 * [系统架构设计 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)：连接拓扑、状态机生命周期、单终端排他控制与安全模型。
 * [通信协议规范 (PROTOCOL.md)](docs/PROTOCOL.md)：消息帧格式、HMAC-SHA256 签名算法、测试证明向量与错误码字典。
 * [客户端对接规范 (CLIENT_INTEGRATION.md)](docs/CLIENT_INTEGRATION.md)：桌面端环境变量覆盖方法与未来客户端 UI 设置演进设计。
+* [Web 前端来源与更新 (WEB_FRONTEND.md)](docs/WEB_FRONTEND.md)：`public/` 里的手机端页面从哪来、怎么重新构建、有哪些坑。
 * [自建与部署指南 (DEPLOYMENT.md)](docs/DEPLOYMENT.md)：Docker Compose 自动 HTTPS 部署、Node.js 运行与免费穿透配置。
 
 ---

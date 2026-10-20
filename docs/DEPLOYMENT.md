@@ -10,7 +10,7 @@
 | :--- | :--- | :--- |
 | `PORT` | `8765` | 服务监听端口。 |
 | `HOST` | `0.0.0.0` | 服务监听 IP（容器环境设为 `0.0.0.0`，本地代理可设为 `127.0.0.1`）。 |
-| `STATIC_DIR` | `./public` | Web 静态前端资源存放路径。 |
+| `STATIC_DIR` | `./public` | Web 静态前端资源存放路径。目录布局要求：`assets/`、`material-icons/`、`pdfjs/` 在根，页面入口在 `remote/v4/index.html`（详见 [WEB_FRONTEND.md](WEB_FRONTEND.md)）。 |
 | `RELAY_AUTH_TOKEN` | *(无)* | 可选。中继接入校验 Token；配置后握手时必须在 Header 或 Query 中携带。 |
 | `LOG_LEVEL` | `info` | 日志级别（`debug` \| `info` \| `warn` \| `error`）。生产环境不输出 payload。 |
 
