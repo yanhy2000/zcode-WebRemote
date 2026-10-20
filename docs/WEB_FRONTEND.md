@@ -3,9 +3,15 @@
 本仓库的 `public/` 不是手写页面，而是 **ZCode 私有 fork（`yanhy2000/ZCode`）构建出来的 Web 客户端产物**。
 远控页面与协议的关系可以概括成一句话：
 
-> **桌面端用 V1 协议（`pass_hash` 挑战应答 + `/ws` 中继），手机端页面用 3.16.1 的共享 UI 组件。**
+> **桌面端用 V1 协议（`pass_hash` 挑战应答 + `/ws` 中继），手机端页面用 ZCode 的 Web 客户端构建产物。**
 
-这样既拿到了 ZCode 3.16.1 的手机端界面，又不需要账号登录，也不需要 V2 的 `/api/v1/remote/*` 设备/令牌接口。
+**当前主线是 3.15.1**（`public/` 即 3.15.1 构建，`dev` 分支）。3.16.1 的构建产物留在
+`public-3.16.1/` 备查，对应 fork 的 `next/3.16.1` 分支；两套目录互换即可切换，服务端不用改。
+
+3.16.1 的界面更"新"（任务列表侧栏形态），但它的手机壳在 3.16.1 上游有一次回归（侧栏仍渲染
+自动化/插件市场死入口），且 3.16.1 原生 web 需要账号登录 + `?token=` 鉴权、与 V1 自建不兼容；
+3.15.1 这套是实际用过的稳定线，作为主线更合适。
+
 
 ---
 
@@ -63,17 +69,24 @@ Copy-Item <fork>/packages/web/dist/pdfjs public/ -Recurse
 Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 ```
 
-回滚：删掉新 `public/`，把 `public-3.15.1/` 改回 `public/` 即可（该版本同样按
+回滚：删掉新 `public/`，把备份目录改回 `public/` 即可（两套都按
 `remote/v4/index.html` + 根 `assets/` 布局）。
+
+**当前磁盘上的两套产物**（切换只需改目录名，服务端不用动）：
+
+| 目录 | 内容 | 对应 fork 分支 |
+| :--- | :--- | :--- |
+| `public/` | 3.15.1 构建（主线，`index-B-YS8Ebz.js`） | `dev` |
+| `public-3.16.1/` | 3.16.1 构建（`index-CVK1ZQo1.js`） | `next/3.16.1` |
+
 
 ## 4. 已知问题
 
-- **`/api/v1/client/configs` 请求失败**：页面启动时会请求
+- **`/api/v1/client/configs` 请求失败**（仅 3.16.1 构建有此现象）：页面启动时会请求
   `https://zcode.z.ai/api/v1/client/configs?app_version=...`，自建域名下被 CORS 拒绝，
-  控制台有一条红色报错。**不影响远控功能**（客户端配置按空处理）。
-  彻底解决需要在 fork 里收敛 `clientConfigService`（batch E 待办），或在本服务里做同源兜底。
+  控制台有一条红色报错。**不影响远控功能**（客户端配置按空处理）。3.15.1 构建没有这条请求。
 - **不要期待 V2 专有界面**：设备列表页、`mobile-task-view-request/update` 同步通道属于上游
-  3.16.1 的 V2 前端模块，我们用的是 V1 入口，这两项没有。其余共享 UI（`packages/ui`）是 3.16.1 版本。
+  3.16.1 的 V2 前端模块，自建用的是 V1 入口，这两项没有。
 - 上游 3.16.1 原生 `packages/web` **不能直接用于自建**：它要求账号 JWT
   （入口处 `!getZCodeJwtToken()` 直接跳登录页），relay 建连用 `?token=<JWT>`，
   且不再实现 `auth_challenge`，与本项目的 `pass_hash` 挑战应答不兼容。
@@ -83,7 +96,8 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 | 项目 | 值 |
 | :--- | :--- |
 | 来源仓库 | `github.com/yanhy2000/ZCode`（ZCode 私有 fork） |
-| 官方基线 | 3.16.1（fork 版本 `1.0.0+3.16.1`） |
-| 远控入口 | V1（`packages/web/src/webRemoteControlTransport.ts` 等 3.15.1 文件保持逐字节不变） |
-| 共享 UI | 3.16.1 |
+| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 35a51faa`） |
+| 远控入口 | V1（`pass_hash` 挑战应答 + `/ws`） |
+| 备查产物 | `public-3.16.1/`（对应 `next/3.16.1 @ b6a0bd30`，版本 `1.0.0+3.16.1`） |
 | 构建命令 | 见 §2 |
+
