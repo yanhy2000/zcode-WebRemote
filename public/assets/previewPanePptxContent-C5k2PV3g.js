@@ -1,1 +1,0 @@
-import{n as e}from"./index-B-YS8Ebz.js";export{e as PptxPreviewContent};

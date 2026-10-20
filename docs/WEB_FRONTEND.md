@@ -76,7 +76,7 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 
 | 目录 | 内容 | 对应 fork 分支 |
 | :--- | :--- | :--- |
-| `public/` | 3.15.1 构建（`index-B-YS8Ebz.js`） | `dev @ 35a51faa`（`1.0.0+3.15.1`） |
+| `public/` | 3.15.1 构建（`index-CGKRyx9s.js`） | `dev @ 383d229e`（`1.0.0+3.15.1`） |
 
 
 ## 4. 已知问题
@@ -90,7 +90,11 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 | 项目 | 值 |
 | :--- | :--- |
 | 来源仓库 | `github.com/yanhy2000/ZCode`（ZCode 私有 fork） |
-| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 35a51faa`） |
+| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 383d229e`） |
 | 远控入口 | V1（`pass_hash` 挑战应答 + `/ws`） |
 | 构建命令 | 见 §2 |
+
+`public/` 不是纯上游 3.15.1：fork 的 `dev` 上带一处本地修复（`383d229e`）——
+远控 web 端插件市场打不开（主视图回落把 `plugin-store` 打回 `chat`，且手机壳没有商店页）。
+重新构建时如果切回上游 tag，这个修复会丢失，插件市场会重新变成死按钮。
 
