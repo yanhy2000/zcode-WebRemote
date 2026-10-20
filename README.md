@@ -6,6 +6,10 @@
 
 它让开发者与自建用户可以完全脱离官方云端中继与官方账号体系，在自己的云服务器、NAS 或局域网内拥有属于自己的移动端远程控制服务。
 
+> **配套桌面端**：[yanhy2000/ZCode](https://github.com/yanhy2000/ZCode) —— ZCode 的私有自维护 fork（去云端裁剪版），
+> 本项目的中继与 `/remote/v4` 手机端页面就是给这个客户端用的。
+
+
 ---
 
 ## 特性亮点
@@ -66,3 +70,10 @@ pnpm dev
 ## 开源许可
 
 本项目遵循 [Apache-2.0 License](LICENSE)。
+
+---
+
+## 相关项目
+
+- 桌面客户端（自维护 fork）：[yanhy2000/ZCode](https://github.com/yanhy2000/ZCode)
+- 上游原项目：[zai-org/ZCode](https://github.com/zai-org/ZCode)
