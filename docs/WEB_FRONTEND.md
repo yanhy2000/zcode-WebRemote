@@ -76,8 +76,8 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 
 | 目录 | 内容 | 对应 fork 分支 |
 | :--- | :--- | :--- |
-| `public/` | 3.15.1 构建（主线，`index-B-YS8Ebz.js`） | `dev` |
-| `public-3.16.1/` | 3.16.1 构建（`index-CVK1ZQo1.js`） | `next/3.16.1` |
+| `public/` | 3.15.1 构建（主线，`index-B-YS8Ebz.js`） | `dev @ 35a51faa` |
+| `public-3.16.1/` | 3.16.1 构建（`index-rOGhJu4M.js`，即修完文案与侧栏死入口之后的那一版） | `next/3.16.1 @ b6a0bd30` |
 
 
 ## 4. 已知问题
