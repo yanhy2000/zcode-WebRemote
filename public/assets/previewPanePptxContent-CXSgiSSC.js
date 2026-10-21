@@ -1,0 +1,1 @@
+import{n as e}from"./index-BOQkLy26.js";export{e as PptxPreviewContent};
