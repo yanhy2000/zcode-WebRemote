@@ -76,7 +76,7 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 
 | 目录 | 内容 | 对应 fork 分支 |
 | :--- | :--- | :--- |
-| `public/` | 3.15.1 构建（`index-DAriSaZw.js`） | `dev @ 4ae25b7d`（`1.0.0+3.15.1`） |
+| `public/` | 3.15.1 构建（`index-BOQkLy26.js`） | `dev @ 4273a987`（`1.0.0+3.15.1`） |
 
 
 ## 4. 已知问题
@@ -93,7 +93,7 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 | 项目 | 值 |
 | :--- | :--- |
 | 来源仓库 | `github.com/yanhy2000/ZCode`（ZCode 私有 fork） |
-| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 4ae25b7d`） |
+| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 4273a987`） |
 | 远控入口 | V1（`pass_hash` 挑战应答 + `/ws`） |
 | 构建命令 | 见 §2 |
 
