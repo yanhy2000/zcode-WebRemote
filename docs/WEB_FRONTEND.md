@@ -76,7 +76,7 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 
 | 目录 | 内容 | 对应 fork 分支 |
 | :--- | :--- | :--- |
-| `public/` | 3.15.1 构建（`index-CGKRyx9s.js`） | `dev @ 383d229e`（`1.0.0+3.15.1`） |
+| `public/` | 3.15.1 构建（`index-DAriSaZw.js`） | `dev @ 4ae25b7d`（`1.0.0+3.15.1`） |
 
 
 ## 4. 已知问题
@@ -84,17 +84,21 @@ Get-ChildItem public/assets -Recurse -Filter *.map | Remove-Item
 - 3.15.1 构建启动时**不会**请求 `https://zcode.z.ai/api/v1/client/configs`，自建环境下控制台干净。
 - 协议是 V1（`pass_hash` 挑战应答 + `/ws`），页面里没有账号登录、没有 V2 设备/令牌接口调用；
   如果以后换成需要账号鉴权的上游前端，relay 侧要同步实现对应接口，不能直接替换静态文件。
+- **Web 端与桌面端是两个独立产物**：桌面安装包自带 UI，Web 端用的是本仓库 `public/` 里的静态构建。
+  改完 `packages/ui` 后如果只打包桌面版，Web 端不会更新，会出现「桌面有、Web 没有」的差异。
+  任何 UI 改动都要按 §3 重建并部署一次。
 
 ## 5. 产物溯源
 
 | 项目 | 值 |
 | :--- | :--- |
 | 来源仓库 | `github.com/yanhy2000/ZCode`（ZCode 私有 fork） |
-| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 383d229e`） |
+| 官方基线 | **3.15.1**（fork 版本 `1.0.0+3.15.1`，`dev @ 4ae25b7d`） |
 | 远控入口 | V1（`pass_hash` 挑战应答 + `/ws`） |
 | 构建命令 | 见 §2 |
 
-`public/` 不是纯上游 3.15.1：fork 的 `dev` 上带一处本地修复（`383d229e`）——
-远控 web 端插件市场打不开（主视图回落把 `plugin-store` 打回 `chat`，且手机壳没有商店页）。
+`public/` 不是纯上游 3.15.1：fork 的 `dev` 上带多处本地改动，随产物一起生效——
+远控 web 端插件市场打不开（主视图回落把 `plugin-store` 打回 `chat`，且手机壳没有商店页）、
+常规设置新增“标题生成模型”、帮助菜单与错误面板的问题上报改跳项目 issue。
 重新构建时如果切回上游 tag，这个修复会丢失，插件市场会重新变成死按钮。
 
