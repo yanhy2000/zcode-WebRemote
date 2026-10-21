@@ -7,6 +7,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# 上一版前端产物，仅用于本地回滚（见 docs/WEB_FRONTEND.md §3）
+public-backup/
+
 # Logs
 logs/
 *.log

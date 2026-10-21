@@ -1,0 +1,1 @@
+import{fa as e,pa as t}from"./index-DAriSaZw.js";export{t as __iconNode,e as default};

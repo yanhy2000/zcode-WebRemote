@@ -1,1 +1,0 @@
-import{t as e}from"./index-CGKRyx9s.js";export{e as PreviewPaneOfficeContent};
