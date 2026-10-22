@@ -50,18 +50,11 @@ describe("Relay Server Integration", () => {
     await server.stop();
   });
 
-  it("handles HTTP health check endpoint", async () => {
+  it("health 只返回 status:ok", async () => {
     const res = await fetch(`http://127.0.0.1:${testPort}/health`);
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { status: string; sessions: number };
-    expect(data.status).toBe("ok");
-    expect(data.sessions).toBe(0);
-  });
-
-  it("health 默认不返回设备身份明细", async () => {
-    const res = await fetch(`http://127.0.0.1:${testPort}/health`);
     const data = (await res.json()) as Record<string, unknown>;
-    expect("sessionList" in data).toBe(false);
+    expect(data).toEqual({ status: "ok" });
   });
 
   it("completes full lifecycle: Register -> Device Auth -> Terminal Auth -> Pair -> Forward Data -> KICK", async () => {

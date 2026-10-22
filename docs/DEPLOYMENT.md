@@ -12,7 +12,7 @@
 | `HOST` | `0.0.0.0` | 服务监听 IP。**几乎总是保持 `0.0.0.0`**：Docker 端口映射和反向代理都要经容器网卡进来，设成 `127.0.0.1` 会导致宿主机 `curl` 和 nginx 全部 502。只有在本机直接跑、且确认只给本机进程访问时才改成 `127.0.0.1`。 |
 | `STATIC_DIR` | `./public` | Web 静态前端资源存放路径。目录布局要求：`assets/`、`material-icons/`、`pdfjs/` 在根，页面入口在 `remote/v4/index.html`（详见 [WEB_FRONTEND.md](WEB_FRONTEND.md)）。 |
 | `RELAY_AUTH_TOKEN` | *(无)* | 可选。中继接入校验 Token。**开启后两端默认都连不上，需要额外注入 `?token=`**，详见下方专节。 |
-| `HEALTH_DETAILS` | *(无)* | 设为 `1` 时 `/health` 额外返回 `sessionList`（含设备 mid 与机器名）。默认关闭，只在排障时临时开启。 |
+| `HEALTH_DETAILS` | *(无)* | **已移除**。`/health` 现在固定只返回 `{"status":"ok"}`，不再支持返回明细。 |
 | `LOG_LEVEL` | `info` | 日志级别（`debug` \| `info` \| `warn` \| `error`）。生产环境不输出 payload。 |
 
 ---
@@ -82,6 +82,92 @@ https://zcode-remote.yanhy.top
 `device_sid` 与 `pass_hash`，二维码里不含长期凭据。
 
 > 想再加一层防扫描器的门槛时，再往下看 Basic 认证那节。
+
+---
+
+## 一个 relay 能同时服务多台 ZCode Dev 吗？
+
+**能，各自完全独立。** 会话按 `device_sid` 隔离，互不可见。
+
+### 已验证的行为
+
+同时接入两台桌面端（A、B），各配一个手机端：
+
+```
+两台桌面端:
+  A sid = d_zZyo-ABrxIVwpgRAeNW-oxaL
+  B sid = d_Uiz1vbtjh2_Ya12BkezXXS3D
+  sid 互不相同: true
+
+两个手机端配对:
+  A pair_status = matched
+  B pair_status = matched
+
+数据隔离:
+  手机 A 收到: [ 'A' ]
+  手机 B 收到: [ 'B' ]
+
+越权测试（用 A 的 passHash 去鉴权 B 的会话）:
+  结果 = 拒绝 (AUTH_FAILED)
+```
+
+数据帧只在自己那对 device↔terminal 之间转发，跨会话鉴权被 `AUTH_FAILED` 拒绝。
+
+### 但有一个必须避开的坑：同一 `deviceSid` 不能同时用两次
+
+中继对同一 `deviceSid` 只保留**一个** device 连接。第二个连接鉴权成功时，第一个会被
+直接关闭（`session.ts` 的 `attachDevice` 逻辑）。
+
+实测两个连接复用同一 `deviceSid`：
+
+```
+实例 1 鉴权成功
+实例 2 用同一 sid 鉴权 → 成功
+实例 1 被踢下线: true
+实例 1 自动重连 → 实例 2 被踢
+→ 形成无限互踢
+```
+
+**这正好命中共享 `~/.zcode` 的双开场景**：`deviceSid` 和 `passHash` 存在
+`~/.zcode/v2/setting.json` 与 `credentials.json`，两个安装共用同一份数据目录时，
+第二个实例启动会读到**同一个 `deviceSid`**，然后和第一个互踢。
+
+### 实践建议
+
+| 场景 | 是否可行 | 说明 |
+| :--- | :--- | :--- |
+| 多台**不同机器**共用一个 relay | ✅ 完全可行 | 各自有独立 `~/.zcode`，`deviceSid` 天然不同 |
+| 同一台机器双开（共享数据目录） | ⚠️ 会互踢 | 两者读到同一 `deviceSid` |
+| 同一台机器双开（隔离数据目录） | ✅ 可行 | 见下方两个环境变量 |
+
+### 同机双开时如何隔离 relay 身份
+
+`deviceSid` 与 `passHash` 分别存在两个文件，**必须同时隔离**：
+
+| 凭据 | 文件 | 由哪个环境变量控制 |
+| :--- | :--- | :--- |
+| `deviceSid` | `~/.zcode/v2/setting.json` | `ZCODE_DESKTOP_HOME_DIR` |
+| `passHash` | `~/.zcode/v2/credentials.json` | `ZCODE_DATA_BASE_DIR` |
+| `deviceMid` | `~/.zcode/v2/telemetry-state.json` | `ZCODE_DATA_BASE_DIR` |
+
+所以第二个实例要这样启动：
+
+```powershell
+$env:ZCODE_DESKTOP_HOME_DIR = "C:\zcode-instance-b"
+$env:ZCODE_DATA_BASE_DIR    = "C:\zcode-instance-b"
+```
+
+实测生效结果：
+
+```
+ZCODE_DATA_BASE_DIR    → getAppConfigDir() = C:\zcode-instance-b\.zcode\v2
+                         存放 telemetry-state.json(deviceMid) 与 credentials.json(passHash)
+ZCODE_DESKTOP_HOME_DIR → setting.json = C:\zcode-instance-b\.zcode\v2\setting.json
+                         存放 webRemoteControlExternalRelayDevice.deviceSid
+```
+
+注意 `ZCODE_STORAGE_DIR` / `ZCODE_SESSION_DB_PATH` **不管**这两个文件，只影响会话数据。
+中继侧不需要任何配置改动 —— 它天然按 `deviceSid` 分会话。
 
 ---
 
@@ -216,29 +302,22 @@ Basic 凭据会出现在这些地方，都是明文：
 两者可以并存，但没必要。relay 在未配置 `RELAY_AUTH_TOKEN` 时会**忽略** `Authorization` 头
 （实测 Basic / Bearer 都能正常握手），所以 nginx 透传的 Basic 头不会干扰 relay。
 
-### 顺带发现：`/health` 会泄露设备信息
+### `/health` 只返回 `{"status":"ok"}`
 
-`/health` 默认返回 `sessionList`，其中含 `device_mid` 和**机器名**（hostname）：
-
-```json
-{"status":"ok","sessions":1,"sessionList":[{"deviceSid":"d_...","mid":"my-private-pc-mid","name":"DESKTOP-ABC123","status":"waiting"}]}
-```
-
-这个端点随反代整个暴露到公网，等于公开「谁在跑远控、机器叫什么」。
-现已默认关闭，需要排障时显式打开：
-
-```yaml
-environment:
-  - HEALTH_DETAILS=1   # 只有排查时才开
-```
-
-默认响应只剩存活信息：
+该端点随反向代理暴露到公网，因此只回答存活，不提供任何内部状态：
 
 ```json
-{"status":"ok","sessions":1,"uptime":3.16,"time":"..."}
+{"status":"ok"}
 ```
 
-**这也是加 nginx Basic 认证的一个正当理由** —— 它能顺带保护 `/health` 这类辅助端点。
+不再包含 `sessions`（在线设备数）、`sessionList`（设备 mid、机器名）、`uptime`（进程存活时长）、
+`time`。这些信息对外没有正当用途，反而能被人用来判断服务规模与重启时机。
+
+健康检查只需看 HTTP 状态码与 `status` 字段：
+
+```bash
+curl -fsS https://your-domain.com/health && echo OK
+```
 
 ---
 

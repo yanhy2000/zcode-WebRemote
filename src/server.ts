@@ -3,7 +3,7 @@ import { existsSync, createReadStream, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import { buildBindAddressWarning } from "./bindAddress.js";
-import { buildHealthPayload, resolveHealthDetailsFlag } from "./health.js";
+import { buildHealthPayload } from "./health.js";
 import { buildIngressTokenStartupWarning, buildUnauthorizedUpgradeLog } from "./ingressAuth.js";
 import { SessionManager } from "./sessionManager.js";
 
@@ -13,8 +13,6 @@ export interface RelayServerOptions {
   staticDir?: string;
   authToken?: string;
   sessionTtlMs?: number;
-  /** 是否在 /health 返回 sessionList（含设备 mid 与机器名），默认关闭 */
-  healthDetails?: boolean;
   logger?: {
     debug(msg: string, extra?: unknown): void;
     info(msg: string, extra?: unknown): void;
@@ -48,7 +46,6 @@ export class RelayServer {
   readonly staticDir?: string;
   readonly authToken?: string;
   readonly sessionManager: SessionManager;
-  private readonly healthDetails: boolean;
   private readonly logger: RelayServerOptions["logger"];
 
   private httpServer?: ReturnType<typeof createServer>;
@@ -59,7 +56,6 @@ export class RelayServer {
     this.host = options.host ?? "0.0.0.0";
     this.staticDir = options.staticDir;
     this.authToken = options.authToken?.trim() || undefined;
-    this.healthDetails = options.healthDetails === true;
     this.logger = options.logger ?? {
       debug: (msg, extra) => console.debug(msg, extra ?? ""),
       info: (msg, extra) => console.log(msg, extra ?? ""),
@@ -180,22 +176,10 @@ export class RelayServer {
     const url = new URL(req.url ?? "/", `http://${req.headers.host || "localhost"}`);
     const pathname = url.pathname;
 
-    // 健康检查端点
+    // 健康检查端点：只回答存活，不暴露会话数、设备信息与进程时长
     if (pathname === "/health" || pathname === "/api/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify(
-          buildHealthPayload(
-            {
-              sessionCount: this.sessionManager.getSessionCount(),
-              sessionList: this.sessionManager.getSessionSummaries(),
-              uptimeSeconds: process.uptime(),
-              nowIso: new Date().toISOString(),
-            },
-            { includeDetails: this.healthDetails },
-          ),
-        ),
-      );
+      res.end(JSON.stringify(buildHealthPayload()));
       return;
     }
 
