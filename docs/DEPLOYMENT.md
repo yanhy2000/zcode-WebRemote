@@ -81,6 +81,20 @@ docker compose up -d --build
 > 用 `--build` 才会重新构建镜像。只跑 `docker compose up -d` 时会复用本地已有的 `zcode-remote:latest`，
 > 改了源码也看不到效果。
 
+### 只拉代码不拉前端产物？
+
+`public/` 里是约 3900 个已构建的前端文件，如果不希望 `git clone` 拖这么久，可以只取中继代码：
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/yanhy2000/zcode-WebRemote.git
+cd zcode-WebRemote
+git sparse-checkout set --no-cone '/*' '!/public'
+```
+
+中继能正常启动并处理 `/ws`，但手机端页面会 404。之后要补前端时执行
+`git sparse-checkout disable` 重新检出；或者直接用
+[WEB_FRONTEND.md](WEB_FRONTEND.md) 的流程本地构建一份 `public/` 挂载进去。
+
 ### 常见构建失败
 
 `ERR_PNPM_IGNORED_BUILDS: Ignored build scripts: esbuild@…`
