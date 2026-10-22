@@ -17,6 +17,74 @@
 
 ---
 
+## ✅ 零鉴权部署（最简单，先看这个）
+
+**如果只是自己用，不需要任何鉴权，配置就三步。**
+
+### 1. 端口只绑本机
+
+```yaml
+ports:
+  - "127.0.0.1:8765:8765"   # 而不是 "8765:8765"
+```
+
+这一步是**安全的关键**：公网无法绕过 nginx 直连中继，但同机的 nginx 仍能转发。
+
+### 2. 清掉 `RELAY_AUTH_TOKEN`
+
+`docker-compose.yml` 里不要留这个变量（注释掉或删掉）。
+
+### 3. nginx 反代
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8765;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+}
+```
+
+### 桌面端：设置面板填地址，不需要环境变量
+
+打开「移动端远程控制」对话框 → 「远程服务器地址」填：
+
+```
+https://zcode-remote.yanhy.top
+```
+
+保存后配对自动刷新，二维码变成自建域名。**不需要设任何环境变量。**
+
+### 手机端：扫码即用
+
+页面从 `window.location` 派生 `wss://<当前域名>/ws`，同域部署天然正确。
+
+### 这套配置已实测通过
+
+用真实 Chrome 加载 `/remote/v4`，配一个模拟桌面端跑完整帧序列：
+
+```
+1) 桌面端注册成功 device_sid = d_Zhh6...
+2) 桌面端 device 鉴权成功 pair_status = waiting
+3) 手机端打开二维码 URL（无任何环境变量）
+4) relay 会话状态 = {"status":"matched","hasDevice":true,"hasTerminal":true}
+   浏览器标题 = "ZCode Dev - Web Remote Control"
+   页面文本 = "已配对，正在加载工作区…"
+   控制台错误数 = 0
+```
+
+剩下的安全性由 TLS + `pass_hash` 挑战应答负责 —— 每次配对都会生成新的随机
+`device_sid` 与 `pass_hash`，二维码里不含长期凭据。
+
+> 想再加一层防扫描器的门槛时，再往下看 Basic 认证那节。
+
+---
+
 ## ⚠️ `RELAY_AUTH_TOKEN` 与 ZCode 客户端的兼容性
 
 **结论：开启后两端默认都连不上（日志持续 `401` / `Unauthorized upgrade blocked`），
