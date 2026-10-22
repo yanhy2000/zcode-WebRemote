@@ -11,8 +11,83 @@
 | `PORT` | `8765` | 服务监听端口。 |
 | `HOST` | `0.0.0.0` | 服务监听 IP。**几乎总是保持 `0.0.0.0`**：Docker 端口映射和反向代理都要经容器网卡进来，设成 `127.0.0.1` 会导致宿主机 `curl` 和 nginx 全部 502。只有在本机直接跑、且确认只给本机进程访问时才改成 `127.0.0.1`。 |
 | `STATIC_DIR` | `./public` | Web 静态前端资源存放路径。目录布局要求：`assets/`、`material-icons/`、`pdfjs/` 在根，页面入口在 `remote/v4/index.html`（详见 [WEB_FRONTEND.md](WEB_FRONTEND.md)）。 |
-| `RELAY_AUTH_TOKEN` | *(无)* | 可选。中继接入校验 Token；配置后握手时必须在 Header 或 Query 中携带。 |
+| `RELAY_AUTH_TOKEN` | *(无)* | 可选。中继接入校验 Token。**开启后两端默认都连不上，需要额外注入 `?token=`**，详见下方专节。 |
 | `LOG_LEVEL` | `info` | 日志级别（`debug` \| `info` \| `warn` \| `error`）。生产环境不输出 payload。 |
+
+---
+
+## ⚠️ `RELAY_AUTH_TOKEN` 与 ZCode 客户端的兼容性
+
+**结论：开启后两端默认都连不上（日志持续 `401` / `Unauthorized upgrade blocked`），
+必须让 relay 地址带上 `?token=`。两端都能注入，但方式不同。**
+
+Token 校验发生在 WebSocket upgrade 阶段，只认两个位置：
+
+```
+Authorization: Bearer <token>
+?token=<token>
+```
+
+而 ZCode 两端的默认行为都不带 token：
+
+| 端 | 默认连接地址怎么来的 | 会不会带 token |
+| :--- | :--- | :--- |
+| 桌面端（`webRemoteControlTransport.ts:263-275`） | `relayWsUrl` + `searchParams.set("mid", ...)` | ❌ 不带 |
+| 手机端（`main.tsx` 的 `resolveExternalRelayWsUrl`） | `VITE_` 变量 → `?relay=` 参数 → 从 `window.location` 派生 | ❌ 不带 |
+
+### 桌面端：改 relay 地址（可用）
+
+`ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` 会被原样使用，直接拼上 token：
+
+```bash
+export ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL="wss://your-domain.com/ws?token=eoe"
+```
+
+transport 用 `new URL()` 解析后 `searchParams.set("mid", ...)`，不会丢掉已有的 `token`：
+
+```
+wss://your-domain.com/ws?token=eoe  →  wss://your-domain.com/ws?token=eoe&mid=<deviceMid>
+```
+
+> 注意：**用设置面板里的「自定义服务器地址」不行**。`resolveWebRemoteControlCustomEndpointUrls`
+> 会重新拼 `relayWsUrl`（`zcodeEndpoint.ts:463-467`），输入的 query 会被丢掉：
+> `https://domain?token=eoe` → `wss://domain/ws`。只有环境变量这条路能带 token。
+
+### 手机端：靠二维码里的 `?relay=` 参数（可用，但绕）
+
+手机端页面的 relay 解析顺序是「`VITE_` 变量 → `?relay=` → 从当前 origin 派生」。
+其中 `?relay=` 是可用的注入点，且二维码 URL 会**保留 baseUrl 上已有的 query**：
+
+```bash
+# 手机端页面地址带上 relay 参数（token 需要 URL 编码）
+export ZCODE_WEB_REMOTE_CONTROL_URL="https://your-domain.com/remote/v4?relay=wss%3A%2F%2Fyour-domain.com%2Fws%3Ftoken%3Deoe"
+```
+
+生成的二维码会变成：
+
+```
+https://your-domain.com/remote/v4?relay=wss%3A%2F%2F...%3Ftoken%3Deoe&sid=...&hash=...&t=...&mid=...
+```
+
+手机扫码后 `resolveExternalRelayWsUrl` 会先命中 `relay` 参数，直接使用带 token 的地址。
+实测该参数能正确解码并携带 token 完成握手。
+
+> 这个参数的编码容易出错，`?` 和 `=` 必须编码成 `%3F` / `%3D`，否则会被外层 URL 解析吃掉。
+
+### 推荐做法：不用 Token，改用端口只绑本机
+
+如果目的只是「不让别人直接连我的 8765 端口」，这比 Token 简单得多，且两端零改动：
+
+```yaml
+ports:
+  - "127.0.0.1:8765:8765"   # 而不是 "8765:8765"
+```
+
+这样公网无法直连 8765，nginx 在同一台机器上仍能正常转发，两端都不需要改任何配置，
+鉴权继续由 TLS + `pass_hash` 挑战应答负责。
+
+`RELAY_AUTH_TOKEN` 真正适用的场景是：中继要暴露给多个**你自己写的**客户端调用，
+且你能控制所有客户端。它不是给现成 ZCode 客户端用的开关。
 
 ---
 

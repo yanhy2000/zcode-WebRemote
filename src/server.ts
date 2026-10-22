@@ -3,6 +3,7 @@ import { existsSync, createReadStream, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import { buildBindAddressWarning } from "./bindAddress.js";
+import { buildIngressTokenStartupWarning, buildUnauthorizedUpgradeLog } from "./ingressAuth.js";
 import { SessionManager } from "./sessionManager.js";
 
 export interface RelayServerOptions {
@@ -96,6 +97,7 @@ export class RelayServer {
         }
         if (this.authToken) {
           this.logger?.info(`[relay] Ingress token authentication enabled`);
+          this.logger?.warn(buildIngressTokenStartupWarning());
         }
         resolve();
       });
@@ -135,7 +137,7 @@ export class RelayServer {
         authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : queryToken;
 
       if (token !== this.authToken) {
-        this.logger?.warn("[relay] Unauthorized upgrade attempt blocked");
+        this.logger?.warn(buildUnauthorizedUpgradeLog());
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
         return;
