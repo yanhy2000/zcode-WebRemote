@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { existsSync, createReadStream, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
+import { buildBindAddressWarning } from "./bindAddress.js";
 import { SessionManager } from "./sessionManager.js";
 
 export interface RelayServerOptions {
@@ -87,6 +88,12 @@ export class RelayServer {
       server.listen(this.port, this.host, () => {
         this.logger?.info(`[relay] Server listening on http://${this.host}:${this.port}`);
         this.logger?.info(`[relay] WebSocket endpoint: ws://${this.host}:${this.port}/ws`);
+        // 监听在 loopback 上时，容器端口映射和反向代理都连不进来，
+        // 提前喊出来，避免排查方向跑偏到网络/证书上。
+        const bindWarning = buildBindAddressWarning(this.host, this.port);
+        if (bindWarning) {
+          this.logger?.warn(bindWarning);
+        }
         if (this.authToken) {
           this.logger?.info(`[relay] Ingress token authentication enabled`);
         }
