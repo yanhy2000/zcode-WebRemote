@@ -107,9 +107,25 @@ stateDiagram-v2
 
 1. **传输层加密**：公网环境下必须强制开启 TLS（`wss://` 和 `https://`）。
 2. **零数据落盘（Zero Data At Rest）**：Relay 进程仅在内存中维护 `Map<deviceSid, RelaySession>`，进程重启即销毁。日志中只允许记录连接建立、心跳和错误码，**严禁将 `data` 帧写入持久化日志**。
-3. **入口防护（可选 Token）**：服务端可配置 `RELAY_AUTH_TOKEN`，在 WebSocket 升级握手阶段拦截未携带凭据的连接。校验只认 `Authorization: Bearer <token>` 与 `?token=<token>` 两种形式。
+3. **入口防护**：分两层，职责不同。
 
-   > **注意**：现成的 ZCode 桌面端与手机端页面**都不会**自动携带该 Token，启用后两端会持续收到 401。
-   > 桌面端可通过在 relay 地址里追加 `?token=` 解决；手机端页面无配置入口，无法携带。
-   > 若目的只是阻止公网直连中继端口，应改用端口映射只绑本机（`127.0.0.1:8765:8765`）配合反向代理，
-   > 而不是启用 Token。详见 [DEPLOYMENT.md](DEPLOYMENT.md) 的专节说明。
+   **基础层 —— 端口只绑本机（必做）**：`ports: ["127.0.0.1:8765:8765"]` 让中继无法被公网直连，
+   只接受同机反向代理转发。这是唯一两端零改动的防护方式，也是推荐做法。
+
+   **可选层 —— 入口凭据**：中继自带 `RELAY_AUTH_TOKEN`，也可用 nginx `auth_basic`。
+   两者都需要把凭据注入到连接地址里，而 ZCode 两端默认都不携带：
+
+   | 端 | 注入点 |
+   | :--- | :--- |
+   | 桌面端 | `ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` 里带 `?token=` 或 `user:pass@` |
+   | 手机端 | `ZCODE_WEB_REMOTE_CONTROL_URL` 里带 `?relay=` 或 `user:pass@`（会进入二维码） |
+
+   > 设置面板的「自定义服务器地址」不是有效注入点：`resolveWebRemoteControlCustomEndpointUrls`
+   > 会重建 `relayWsUrl`，输入的 query 与 userinfo 都会被丢掉。
+   >
+   > 注意凭据会明文出现在二维码、浏览器地址栏与桌面端启动配置里。只在你信任
+   > 「能看到二维码的人」时才用。详见 [DEPLOYMENT.md](DEPLOYMENT.md) 的专节说明。
+
+4. **辅助端点最小暴露**：`/health` 默认只返回存活信息（`status` / `sessions` / `uptime` / `time`）。
+   设备明细（`device_mid`、机器名）需显式设置 `HEALTH_DETAILS=1` 才返回，避免该端点
+   随反向代理暴露后泄露设备身份。

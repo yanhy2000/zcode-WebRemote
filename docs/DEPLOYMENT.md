@@ -12,6 +12,7 @@
 | `HOST` | `0.0.0.0` | 服务监听 IP。**几乎总是保持 `0.0.0.0`**：Docker 端口映射和反向代理都要经容器网卡进来，设成 `127.0.0.1` 会导致宿主机 `curl` 和 nginx 全部 502。只有在本机直接跑、且确认只给本机进程访问时才改成 `127.0.0.1`。 |
 | `STATIC_DIR` | `./public` | Web 静态前端资源存放路径。目录布局要求：`assets/`、`material-icons/`、`pdfjs/` 在根，页面入口在 `remote/v4/index.html`（详见 [WEB_FRONTEND.md](WEB_FRONTEND.md)）。 |
 | `RELAY_AUTH_TOKEN` | *(无)* | 可选。中继接入校验 Token。**开启后两端默认都连不上，需要额外注入 `?token=`**，详见下方专节。 |
+| `HEALTH_DETAILS` | *(无)* | 设为 `1` 时 `/health` 额外返回 `sessionList`（含设备 mid 与机器名）。默认关闭，只在排障时临时开启。 |
 | `LOG_LEVEL` | `info` | 日志级别（`debug` \| `info` \| `warn` \| `error`）。生产环境不输出 payload。 |
 
 ---
@@ -74,20 +75,102 @@ https://your-domain.com/remote/v4?relay=wss%3A%2F%2F...%3Ftoken%3Deoe&sid=...&ha
 
 > 这个参数的编码容易出错，`?` 和 `=` 必须编码成 `%3F` / `%3D`，否则会被外层 URL 解析吃掉。
 
-### 推荐做法：不用 Token，改用端口只绑本机
+### 方案对比
 
-如果目的只是「不让别人直接连我的 8765 端口」，这比 Token 简单得多，且两端零改动：
+| 方案 | 桌面端 | 手机端 | 凭据是否会外泄 | 推荐度 |
+| :--- | :--- | :--- | :--- | :--- |
+| 端口只绑 `127.0.0.1` | 零改动 | 零改动 | 无凭据 | ⭐⭐⭐ 必做 |
+| nginx `auth_basic` | 改环境变量（URL 内嵌凭据） | 改环境变量（二维码内嵌凭据） | ⚠️ 二维码 / 地址栏可见 | ⭐⭐ 可选加固 |
+| `RELAY_AUTH_TOKEN` | 改环境变量 | 改环境变量（需编码） | ⚠️ 同上 | ⭐ 不推荐 |
+
+**基础防护是「端口只绑本机」，不是任何 Token。** 做完这一步，公网已经无法直连中继，
+剩下的鉴权由 TLS + `pass_hash` 挑战应答负责。下面的 Basic 认证只是在此之上的额外一层。
 
 ```yaml
 ports:
   - "127.0.0.1:8765:8765"   # 而不是 "8765:8765"
 ```
 
-这样公网无法直连 8765，nginx 在同一台机器上仍能正常转发，两端都不需要改任何配置，
-鉴权继续由 TLS + `pass_hash` 挑战应答负责。
+这样公网无法直连 8765，nginx 在同一台机器上仍能正常转发，两端都不需要改任何配置。
 
-`RELAY_AUTH_TOKEN` 真正适用的场景是：中继要暴露给多个**你自己写的**客户端调用，
-且你能控制所有客户端。它不是给现成 ZCode 客户端用的开关。
+### 可选加固：nginx `auth_basic`
+
+如果还想拦住扫域名的机器人，可以加一层 HTTP Basic。**这条路两端都能走通**（已实测）：
+
+```nginx
+auth_basic "zcode";
+auth_basic_user_file /www/server/pass/zcode-remote.pass;
+```
+
+宝塔面板：「网站 → 设置 → 密码访问」直接生成该文件。
+
+#### 桌面端
+
+把凭据写进 relay 地址即可，`ws` 库会自动转成 `Authorization: Basic` 头：
+
+```bash
+export ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL="wss://user:pass@your-domain.com/ws"
+```
+
+实测：`new URL()` 后 `searchParams.set("mid", ...)` 不会丢掉 userinfo，
+握手时服务端收到 `Authorization: Basic dXNlcjpwYXNz`。
+
+#### 手机端
+
+二维码 baseUrl 内嵌凭据，浏览器会用它在加载页面的同时缓存认证状态：
+
+```bash
+export ZCODE_WEB_REMOTE_CONTROL_URL="https://user:pass@your-domain.com/remote/v4"
+```
+
+实测三点：
+
+1. `buildWebRemoteControlExternalQrUrl` 会**保留 userinfo**，二维码变成
+   `https://user:pass@your-domain.com/remote/v4?sid=...&hash=...`
+2. 浏览器用该地址加载页面 → `HTTP 200`，认证状态被缓存
+3. **认证后的页面再开同源 WebSocket，握手会自动携带 `Authorization` 头** —— 这是浏览器行为，
+   不需要改前端代码
+
+#### ⚠️ 这条路的安全代价
+
+Basic 凭据会出现在这些地方，都是明文：
+
+- **二维码本身** —— 别人拍到你的屏幕就等于拿到密码
+- 浏览器地址栏与历史记录
+- 桌面端环境变量 / 启动脚本
+- 反代 access 日志（如果记录了完整 URI）
+
+所以：**只在你信任「看得到二维码的人」时才用 Basic 认证。** 如果只是想防扫描器，
+端口绑本机 + 保持 `RELAY_AUTH_TOKEN` 关闭通常已经够了。
+
+#### 与 `RELAY_AUTH_TOKEN` 的关系
+
+两者可以并存，但没必要。relay 在未配置 `RELAY_AUTH_TOKEN` 时会**忽略** `Authorization` 头
+（实测 Basic / Bearer 都能正常握手），所以 nginx 透传的 Basic 头不会干扰 relay。
+
+### 顺带发现：`/health` 会泄露设备信息
+
+`/health` 默认返回 `sessionList`，其中含 `device_mid` 和**机器名**（hostname）：
+
+```json
+{"status":"ok","sessions":1,"sessionList":[{"deviceSid":"d_...","mid":"my-private-pc-mid","name":"DESKTOP-ABC123","status":"waiting"}]}
+```
+
+这个端点随反代整个暴露到公网，等于公开「谁在跑远控、机器叫什么」。
+现已默认关闭，需要排障时显式打开：
+
+```yaml
+environment:
+  - HEALTH_DETAILS=1   # 只有排查时才开
+```
+
+默认响应只剩存活信息：
+
+```json
+{"status":"ok","sessions":1,"uptime":3.16,"time":"..."}
+```
+
+**这也是加 nginx Basic 认证的一个正当理由** —— 它能顺带保护 `/health` 这类辅助端点。
 
 ---
 

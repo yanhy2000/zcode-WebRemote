@@ -58,6 +58,12 @@ describe("Relay Server Integration", () => {
     expect(data.sessions).toBe(0);
   });
 
+  it("health 默认不返回设备身份明细", async () => {
+    const res = await fetch(`http://127.0.0.1:${testPort}/health`);
+    const data = (await res.json()) as Record<string, unknown>;
+    expect("sessionList" in data).toBe(false);
+  });
+
   it("completes full lifecycle: Register -> Device Auth -> Terminal Auth -> Pair -> Forward Data -> KICK", async () => {
     // 1. Device 注册
     const deviceWs = new WebSocket(wsUrl);
