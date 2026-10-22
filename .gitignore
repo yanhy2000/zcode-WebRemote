@@ -18,6 +18,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Docker 构建忽略项
+.dockerignore
+
 # Environment & credentials
 .env
 .env.*

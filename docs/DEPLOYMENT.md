@@ -40,7 +40,10 @@ services:
       - zcode-remote
 
   zcode-remote:
-    image: ghcr.io/yourname/zcode-remote:latest
+    # 本仓库没有发布预构建镜像，必须用源码构建（--build）。
+    # 若改成 `image: ghcr.io/...` 会拉取失败。
+    build: .
+    image: zcode-remote:latest
     restart: always
     environment:
       - PORT=8765
@@ -72,8 +75,25 @@ remote.yourdomain.com {
 
 启动命令：
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+> 用 `--build` 才会重新构建镜像。只跑 `docker compose up -d` 时会复用本地已有的 `zcode-remote:latest`，
+> 改了源码也看不到效果。
+
+### 常见构建失败
+
+`ERR_PNPM_IGNORED_BUILDS: Ignored build scripts: esbuild@…`
+
+pnpm 10 起默认不执行依赖的安装脚本，而 `vitest` / `tsx` 依赖 `esbuild`，esbuild 必须跑自己的安装脚本才能拿到可执行文件。
+本项目已在 `package.json` 中显式放行：
+
+```json
+"pnpm": { "onlyBuiltDependencies": ["esbuild"] }
+```
+
+同时 `packageManager` 固定了 pnpm 主版本，Dockerfile 用 `corepack` 读取该字段，不会漂移到更新的 pnpm 大版本。
+如果仍然报这个错，说明本地/服务器上的镜像缓存是旧 Dockerfile 构建的，执行 `docker compose build --no-cache` 重建。
 
 ---
 
@@ -84,6 +104,7 @@ docker compose up -d
 ```bash
 git clone https://github.com/yourname/zcode-remote.git
 cd zcode-remote
+corepack enable   # 依据 package.json 的 packageManager 字段启用对应 pnpm 版本
 pnpm install
 pnpm build
 pnpm start

@@ -4,6 +4,12 @@
   "description": "Self-hosted Web Remote Control server & gateway for ZCode",
   "type": "module",
   "main": "dist/index.js",
+  "packageManager": "pnpm@10.19.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",

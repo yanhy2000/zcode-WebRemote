@@ -15,4 +15,6 @@ services:
       # 可选：配置接入 Token 保护中继端点
       # - RELAY_AUTH_TOKEN=your_secure_token
     volumes:
+      # 前端是构建产物，不进镜像，只读挂载。
+      # 宿主机目录为空时中继仍能启动，但手机端页面会返回 404。
       - ./public:/app/public:ro
